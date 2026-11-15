@@ -7,6 +7,7 @@ import { TOWER_ORDER, TOWERS, upgradeCost, sellValue } from './towers.js';
 import {
   placeTower, doUpgrade, sellTower, startWave, log,
 } from './world.js';
+import { BLESSINGS, takeBlessing } from './blessings.js';
 import { ensureAudio } from './audio.js';
 
 function inRect(x, y, r) {
@@ -60,6 +61,18 @@ export function attachInput(canvas, hooks) {
     if (inRect(x, y, ui.pauseBtn)) { state.paused = !state.paused; return; }
     if (inRect(x, y, ui.muteBtn)) { state.muted = !state.muted; return; }
     if (inRect(x, y, ui.waveBtn)) { startWave(state); return; }
+
+    if (ui.blessingCards) {
+      for (const card of ui.blessingCards) {
+        if (inRect(x, y, card)) {
+          if (takeBlessing(state, card.id)) {
+            const b = BLESSINGS[card.id];
+            log(state, 'Blessing taken: ' + b.icon + ' ' + b.name + ' — ' + b.desc);
+          }
+          return;
+        }
+      }
+    }
 
     if (ui.shop) {
       for (const key of TOWER_ORDER) {

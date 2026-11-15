@@ -114,10 +114,12 @@ export const LEVEL_MUL = [
 
 export const MAX_LEVEL = 3;
 
-export function towerStats(type, level) {
+/** Stats for a tower at a level, with the run's blessing modifiers
+ * (state.mods from blessings.js) folded in when given. */
+export function towerStats(type, level, mods) {
   const base = TOWERS[type];
   const mul = LEVEL_MUL[level - 1];
-  return {
+  const stats = {
     ...base,
     damage: base.damage * mul.damage,
     range: base.range * mul.range,
@@ -125,6 +127,16 @@ export function towerStats(type, level) {
     chain: base.chain ? base.chain + (level - 1) : 0,
     pollenPerCycle: base.pollenPerCycle ? base.pollenPerCycle + (level - 1) * 2 : 0,
   };
+  if (mods) {
+    stats.damage *= mods.damage;
+    stats.range *= mods.range;
+    stats.rate *= mods.rate;
+    if (stats.pollenPerCycle) stats.pollenPerCycle += mods.sunBonus;
+    if (stats.slowFactor) {
+      stats.slowFactor = Math.max(0.3, stats.slowFactor - 0.06 * mods.frost);
+    }
+  }
+  return stats;
 }
 
 export function upgradeCost(tower) {

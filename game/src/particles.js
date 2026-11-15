@@ -39,6 +39,41 @@ export function floater(state, x, y, text, color) {
   state.floaters.push({ x, y, text, color, life: 1.1, maxLife: 1.1 });
 }
 
+/** Tiny bright sparks on every landed hit — the "juice" that makes a
+ * busy fight read as impacts, not just drifting projectiles. */
+export function hitSpark(state, x, y, color) {
+  for (let i = 0; i < 3; i++) {
+    const a = state.rng() * Math.PI * 2;
+    const v = randRange(state.rng, 30, 95);
+    state.particles.push({
+      x, y,
+      vx: Math.cos(a) * v,
+      vy: Math.sin(a) * v - 12,
+      life: randRange(state.rng, 0.14, 0.3),
+      maxLife: 0.3,
+      size: randRange(state.rng, 1.2, 2.4),
+      color,
+      gravity: 30,
+    });
+  }
+}
+
+/** One slow ambient mote: a drifting spore / firefly that keeps even a
+ * quiet frame alive. Long life, gentle upward drift, soft colours. */
+export function mote(state, x, y) {
+  const colors = ['#ffe9a8', '#d8f7b0', '#ffd1e8', '#fff6d8'];
+  state.particles.push({
+    x, y,
+    vx: randRange(state.rng, -9, 9),
+    vy: randRange(state.rng, -13, -4),
+    life: randRange(state.rng, 2.6, 4.2),
+    maxLife: 4.2,
+    size: randRange(state.rng, 1.4, 2.6),
+    color: colors[Math.floor(state.rng() * colors.length)],
+    gravity: -3,
+  });
+}
+
 export function stepParticles(state, dt) {
   const ps = state.particles;
   for (let i = ps.length - 1; i >= 0; i--) {

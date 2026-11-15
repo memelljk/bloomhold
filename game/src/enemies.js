@@ -75,6 +75,7 @@ export function makeEnemy(type, hpMul, x, y, rng) {
     poisonDps: 0,
     poisonSource: null,
     shedTimer: 4,
+    flashUntil: 0, // renderer-only: brief white flash when hit
     wobble: (rng ? rng() : Math.random()) * Math.PI * 2,
     dead: false,
     reached: false,

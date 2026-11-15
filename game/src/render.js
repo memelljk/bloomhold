@@ -9,6 +9,7 @@ import {
 } from './config.js';
 import { TOWERS, TOWER_ORDER, towerStats, upgradeCost, sellValue, MAX_LEVEL } from './towers.js';
 import { TOTAL_WAVES, wavePreview } from './waves.js';
+import { BLESSINGS } from './blessings.js';
 import { makeRng } from './random.js';
 
 function rr(ctx, x, y, w, h, r) {
@@ -34,11 +35,25 @@ function text(ctx, str, x, y, font, color, align = 'left', baseline = 'alphabeti
 /* ------------------------------------------------------------------ */
 
 function drawField(ctx, state) {
-  // Grass: two-tone mowed checker.
+  // Grass: two-tone mowed checker, broken up by soft tonal patches so
+  // no cell reads as flat vector fill (fixed seed: identical each frame).
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       ctx.fillStyle = (c + r) % 2 === 0 ? COLORS.grassA : COLORS.grassB;
       ctx.fillRect(FIELD_X + c * CELL, FIELD_Y + r * CELL, CELL, CELL);
+    }
+  }
+  const patch = makeRng(4242);
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const roll = patch();
+      if (roll < 0.42) continue;
+      const px = FIELD_X + c * CELL + 10 + patch() * 44;
+      const py = FIELD_Y + r * CELL + 10 + patch() * 44;
+      ctx.fillStyle = roll < 0.72 ? 'rgba(38, 84, 30, 0.13)' : 'rgba(196, 232, 150, 0.10)';
+      ctx.beginPath();
+      ctx.ellipse(px, py, 13 + patch() * 17, 8 + patch() * 10, patch() * 3, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
   // Decor: tufts, tiny flowers, stones (positions fixed at world birth).
@@ -65,6 +80,39 @@ function drawField(ctx, state) {
       }
       ctx.fillStyle = '#ffb340';
       ctx.beginPath(); ctx.arc(0, 0, 1.9, 0, Math.PI * 2); ctx.fill();
+    } else if (d.kind === 'bush') {
+      // A low leafy mound: three dark blobs, light flecks, one bloom.
+      ctx.fillStyle = '#3e7a2e';
+      for (const [bx, by, br] of [[-6, 2, 6.5], [5, 3, 7.5], [0, -3, 6]]) {
+        ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#5da24b';
+      for (const [bx, by] of [[-4, -2], [3, 0], [0, 4]]) {
+        ctx.beginPath(); ctx.arc(bx, by, 2.2, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = d.color;
+      ctx.beginPath(); ctx.arc(4.5, -4.5, 2.4, 0, Math.PI * 2); ctx.fill();
+    } else if (d.kind === 'clover') {
+      ctx.fillStyle = '#4c9440';
+      for (const [bx, by] of [[-3.4, 1.5], [3.4, 1.5], [0, -3]]) {
+        ctx.beginPath(); ctx.arc(bx, by, 3.1, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath(); ctx.arc(-1, -1.5, 1.1, 0, Math.PI * 2); ctx.fill();
+    } else if (d.kind === 'mushroom') {
+      ctx.fillStyle = '#f3e6cf';
+      ctx.fillRect(-1.6, -1, 3.2, 5.5);
+      ctx.fillStyle = '#d95f43';
+      ctx.beginPath(); ctx.arc(0, -1, 5.6, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      for (const [bx, by] of [[-2.4, -3.4], [1.8, -4.4], [0.4, -2.2]]) {
+        ctx.beginPath(); ctx.arc(bx, by, 1.05, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (d.kind === 'pebbles') {
+      ctx.fillStyle = 'rgba(96, 96, 84, 0.55)';
+      for (const [bx, by, br] of [[-4, 2, 3], [1, 3.4, 2.4], [4.4, 0.6, 2.8]]) {
+        ctx.beginPath(); ctx.ellipse(bx, by, br, br * 0.7, 0.3, 0, Math.PI * 2); ctx.fill();
+      }
     } else {
       ctx.fillStyle = 'rgba(90, 90, 80, 0.5)';
       ctx.beginPath(); ctx.ellipse(0, 0, 5, 3.6, 0.4, 0, Math.PI * 2); ctx.fill();
@@ -91,6 +139,59 @@ function drawField(ctx, state) {
     const y = pts[seg].y + (pts[seg + 1].y - pts[seg].y) * k + (speckle() - 0.5) * 26;
     ctx.beginPath(); ctx.arc(x, y, 1.6 + speckle() * 1.8, 0, Math.PI * 2); ctx.fill();
   }
+  // Path dressing: tiny blooms and tufts sprouting along both edges of
+  // the dirt, so the path reads as worn into a living garden.
+  const dress = makeRng(90210);
+  const dressColors = ['#ff8fb3', '#ffd94d', '#ffffff', '#c9a0ff'];
+  for (let i = 0; i < 110; i++) {
+    const seg = Math.floor(dress() * (pts.length - 1));
+    const a = pts[seg];
+    const b = pts[seg + 1];
+    const k = dress();
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const side = dress() < 0.5 ? -1 : 1;
+    const off = 25 + dress() * 9;
+    const x = a.x + dx * k + (-dy / len) * side * off;
+    const y = a.y + dy * k + (dx / len) * side * off;
+    if (x < FIELD_X + 6 || x > FIELD_X + FIELD_W - 6 ||
+        y < FIELD_Y + 6 || y > FIELD_Y + FIELD_H - 6) continue;
+    if (dress() < 0.55) {
+      ctx.fillStyle = dressColors[Math.floor(dress() * dressColors.length)];
+      for (let p = 0; p < 4; p++) {
+        const ang = (p / 4) * Math.PI * 2 + 0.4;
+        ctx.beginPath();
+        ctx.ellipse(x + Math.cos(ang) * 2.6, y + Math.sin(ang) * 2.6, 2.1, 1.4, ang, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#ffb340';
+      ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.strokeStyle = 'rgba(58, 110, 44, 0.9)';
+      ctx.lineWidth = 1.6;
+      for (let s = -1; s <= 1; s++) {
+        ctx.beginPath();
+        ctx.moveTo(x + s * 3, y + 3);
+        ctx.quadraticCurveTo(x + s * 4, y - 2, x + s * 5.5, y - 5.5);
+        ctx.stroke();
+      }
+    }
+  }
+  // Sunlight wash from the top-left and a soft vignette at the edges.
+  const sun = ctx.createLinearGradient(FIELD_X, FIELD_Y, FIELD_X + FIELD_W, FIELD_Y + FIELD_H);
+  sun.addColorStop(0, 'rgba(255, 244, 190, 0.07)');
+  sun.addColorStop(0.5, 'rgba(255, 244, 190, 0)');
+  sun.addColorStop(1, 'rgba(10, 26, 8, 0.08)');
+  ctx.fillStyle = sun;
+  ctx.fillRect(FIELD_X, FIELD_Y, FIELD_W, FIELD_H);
+  const vig = ctx.createRadialGradient(
+    FIELD_X + FIELD_W / 2, FIELD_Y + FIELD_H / 2, FIELD_H * 0.42,
+    FIELD_X + FIELD_W / 2, FIELD_Y + FIELD_H / 2, FIELD_H * 0.86);
+  vig.addColorStop(0, 'rgba(8, 18, 6, 0)');
+  vig.addColorStop(1, 'rgba(8, 18, 6, 0.16)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(FIELD_X, FIELD_Y, FIELD_W, FIELD_H);
   // Field frame.
   ctx.strokeStyle = 'rgba(30, 48, 24, 0.55)';
   ctx.lineWidth = 3;
@@ -133,6 +234,15 @@ function drawHeartbloom(ctx, state) {
   ctx.fillStyle = '#ff5d73';
   drawHeart(ctx, 0, 1, 5.5);
   ctx.restore();
+  // Orbiting pollen sparkles around the bloom.
+  for (let i = 0; i < 6; i++) {
+    const a = state.time * 0.9 + (i * Math.PI * 2) / 6;
+    const rad = 30 + Math.sin(state.time * 1.7 + i * 2.1) * 6;
+    ctx.fillStyle = i % 2 ? 'rgba(255, 217, 77, 0.85)' : 'rgba(255, 194, 212, 0.85)';
+    ctx.beginPath();
+    ctx.arc(x + Math.cos(a) * rad, y + Math.sin(a) * rad * 0.82, 2.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
   text(ctx, '♥ ' + Math.max(0, state.lives), x, y + 44, '700 14px system-ui, sans-serif',
     COLORS.heart, 'center');
 }
@@ -253,7 +363,9 @@ function drawTowerHead(ctx, type, x, y, angle, scale, time, recoil) {
 
 function drawTower(ctx, state, tower) {
   const { x, y } = tower;
-  // Soil mound + stem.
+  // Soft ground shadow, then soil mound + stem.
+  ctx.fillStyle = 'rgba(18, 34, 14, 0.28)';
+  ctx.beginPath(); ctx.ellipse(x + 5, y + 16, 17, 6.5, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = COLORS.soil;
   ctx.beginPath(); ctx.ellipse(x, y + 13, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#4e7a35';
@@ -293,6 +405,22 @@ function drawEnemy(ctx, state, e) {
   if (flying) {
     ctx.fillStyle = 'rgba(20, 30, 15, 0.3)';
     ctx.beginPath(); ctx.ellipse(e.x, e.y + 8, def.radius * 0.8, 4.4, 0, 0, Math.PI * 2); ctx.fill();
+  } else {
+    // Ground shadow: grounds every bug on the grass.
+    ctx.fillStyle = 'rgba(18, 34, 14, 0.26)';
+    ctx.beginPath();
+    ctx.ellipse(e.x + 3, e.y + def.radius * 0.82, def.radius * 0.88, def.radius * 0.34, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (def.boss) {
+    // A slow menace aura pulsing behind the boss.
+    const auraR = def.radius * (2.15 + Math.sin(state.time * 2.2 + e.wobble) * 0.16);
+    const aura = ctx.createRadialGradient(e.x, e.y, def.radius * 0.5, e.x, e.y, auraR);
+    aura.addColorStop(0, 'rgba(255, 96, 60, 0.30)');
+    aura.addColorStop(0.7, 'rgba(190, 50, 60, 0.14)');
+    aura.addColorStop(1, 'rgba(190, 50, 60, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath(); ctx.arc(e.x, e.y, auraR, 0, Math.PI * 2); ctx.fill();
   }
   ctx.save();
   ctx.translate(x, y);
@@ -397,6 +525,11 @@ function drawEnemy(ctx, state, e) {
     ctx.fillStyle = 'rgba(140, 230, 110, 0.35)';
     ctx.beginPath(); ctx.arc(0, 0, def.radius * 0.7, 0, Math.PI * 2); ctx.fill();
   }
+  // Hit flash: a white blink in the instant a hit lands.
+  if (state.time < e.flashUntil) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.beginPath(); ctx.arc(0, 0, def.radius, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.restore();
   // HP bar.
   if (e.hp < e.maxHp) {
@@ -422,9 +555,13 @@ function drawProjectiles(ctx, state) {
     ctx.save();
     ctx.translate(p.x, p.y);
     if (p.kind === 'petal') {
+      ctx.fillStyle = 'rgba(255, 180, 210, 0.28)';
+      ctx.beginPath(); ctx.arc(0, 0, 10.5, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = p.color;
       ctx.beginPath(); ctx.ellipse(0, 0, 6.4, 3.6, state.time * 9, 0, Math.PI * 2); ctx.fill();
     } else if (p.kind === 'frost') {
+      ctx.fillStyle = 'rgba(155, 231, 255, 0.30)';
+      ctx.beginPath(); ctx.arc(0, 0, 9.5, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = p.color;
       ctx.beginPath(); ctx.arc(0, 0, 5.4, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.9)';
@@ -554,7 +691,7 @@ function drawSidebar(ctx, state) {
   const sel = state.selected;
   if (sel) {
     const def = TOWERS[sel.type];
-    const stats = towerStats(sel.type, sel.level);
+    const stats = towerStats(sel.type, sel.level, state.mods);
     text(ctx, def.name + '  ·  Lv ' + sel.level, x + 20, panelY + 22,
       '800 13.5px system-ui, sans-serif', COLORS.text);
     text(ctx, 'DMG ' + Math.round(stats.damage) + '   RNG ' + Math.round(stats.range) +
@@ -583,7 +720,7 @@ function drawSidebar(ctx, state) {
   } else if (state.shopSel) {
     const def = TOWERS[state.shopSel];
     text(ctx, def.name, x + 20, panelY + 22, '800 13.5px system-ui, sans-serif', COLORS.text);
-    const stats = towerStats(state.shopSel, 1);
+    const stats = towerStats(state.shopSel, 1, state.mods);
     text(ctx, 'DMG ' + Math.round(stats.damage) + '   RNG ' + Math.round(stats.range) +
       '   RATE ' + stats.rate.toFixed(1) + '/s', x + 20, panelY + 42,
       '600 11.5px ui-monospace, monospace', COLORS.dim);
@@ -621,6 +758,19 @@ function drawSidebar(ctx, state) {
     text(ctx, 'Next: ' + wavePreview(state.wave + 1), x + 14, bwY + 68,
       '11.5px system-ui, sans-serif', COLORS.dim);
   }
+  // Blessings taken this run, as an icon row (with stack counts).
+  text(ctx, 'BLESSINGS', x + 14, bwY + 94, '800 11px system-ui, sans-serif', COLORS.faint);
+  if (state.blessings && state.blessings.length) {
+    const counts = {};
+    for (const id of state.blessings) counts[id] = (counts[id] || 0) + 1;
+    const icons = Object.keys(counts).map((id) =>
+      BLESSINGS[id].icon + (counts[id] > 1 ? '×' + counts[id] : ''));
+    text(ctx, icons.join('  '), x + 14, bwY + 116,
+      '15px system-ui, sans-serif', COLORS.text);
+  } else {
+    text(ctx, 'Clear a wave to earn one', x + 14, bwY + 116,
+      '11.5px system-ui, sans-serif', COLORS.faint);
+  }
 }
 
 function drawLog(ctx, state) {
@@ -642,7 +792,7 @@ function drawLog(ctx, state) {
 function drawGhost(ctx, state) {
   if (state.phase !== 'play') return;
   if (state.selected) {
-    const stats = towerStats(state.selected.type, state.selected.level);
+    const stats = towerStats(state.selected.type, state.selected.level, state.mods);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.beginPath(); ctx.arc(state.selected.x, state.selected.y, stats.range, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';
@@ -658,7 +808,7 @@ function drawGhost(ctx, state) {
     !state.pathKeys.has(c + ',' + r) &&
     !(c === HEART_CELL.c && r === HEART_CELL.r) &&
     !state.towers.some((t) => t.c === c && t.r === r);
-  const stats = towerStats(state.shopSel, 1);
+  const stats = towerStats(state.shopSel, 1, state.mods);
   ctx.fillStyle = ok ? 'rgba(255,255,255,0.10)' : 'rgba(255, 60, 60, 0.12)';
   ctx.beginPath(); ctx.arc(x, y, stats.range, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = ok ? 'rgba(255,255,255,0.4)' : 'rgba(255,80,80,0.6)';
@@ -682,18 +832,101 @@ function drawBanner(ctx, state) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Blessing offer (between waves)                                      */
+/* ------------------------------------------------------------------ */
+
+function wrapText(ctx, str, maxW) {
+  const words = str.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const next = line ? line + ' ' + w : w;
+    if (ctx.measureText(next).width > maxW && line) { lines.push(line); line = w; }
+    else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function drawBlessings(ctx, state) {
+  if (!state.offer || state.phase !== 'play' || state.waveActive) return;
+  ctx.fillStyle = 'rgba(10, 18, 8, 0.25)';
+  ctx.fillRect(FIELD_X, FIELD_Y, FIELD_W, FIELD_H);
+  const w = 852;
+  const h = 138;
+  const x = FIELD_X + (FIELD_W - w) / 2;
+  const y = FIELD_BOTTOM - h - 14;
+  ctx.fillStyle = 'rgba(22, 34, 18, 0.94)';
+  rr(ctx, x, y, w, h, 14); ctx.fill();
+  ctx.strokeStyle = COLORS.pollen; ctx.lineWidth = 1.8; ctx.stroke();
+  text(ctx, '🌟 THE GARDEN OFFERS A BLESSING — CHOOSE ONE', x + w / 2, y + 27,
+    '800 15.5px system-ui, sans-serif', '#fff7ea', 'center');
+  state.ui.blessingCards = [];
+  const cw = (w - 48) / 3;
+  state.offer.forEach((id, i) => {
+    const b = BLESSINGS[id];
+    const cx = x + 16 + i * (cw + 8);
+    const cy = y + 40;
+    const rect = { id, x: cx, y: cy, w: cw, h: 66 };
+    state.ui.blessingCards.push(rect);
+    const hover = state.mouse.x >= cx && state.mouse.x <= cx + cw &&
+      state.mouse.y >= cy && state.mouse.y <= cy + 66;
+    ctx.fillStyle = hover ? '#3d6128' : COLORS.panelSoft;
+    rr(ctx, cx, cy, cw, 66, 10); ctx.fill();
+    ctx.strokeStyle = hover ? COLORS.pollen : COLORS.panelEdge;
+    ctx.lineWidth = hover ? 2.2 : 1.2; ctx.stroke();
+    text(ctx, b.icon, cx + 30, cy + 42, '26px system-ui, sans-serif', COLORS.text, 'center');
+    text(ctx, b.name, cx + 52, cy + 27, '800 13.5px system-ui, sans-serif', COLORS.text);
+    ctx.font = '11.5px system-ui, sans-serif';
+    const lines = wrapText(ctx, b.desc, cw - 64);
+    lines.slice(0, 2).forEach((ln, li) =>
+      text(ctx, ln, cx + 52, cy + 45 + li * 14, '11.5px system-ui, sans-serif', COLORS.dim));
+  });
+  text(ctx, 'Blessings stack for the whole run · or send the wave to let this one wilt',
+    x + w / 2, y + h - 10, '11.5px system-ui, sans-serif', COLORS.faint, 'center');
+}
+
+/* ------------------------------------------------------------------ */
 /* Screens                                                             */
 /* ------------------------------------------------------------------ */
 
 function drawTitle(ctx, state) {
-  ctx.fillStyle = 'rgba(16, 26, 13, 0.62)';
+  // Dusk gradient veil over the posed garden: bright at the top where
+  // the title sits, deeper at the bottom.
+  const veil = ctx.createLinearGradient(0, FIELD_Y, 0, FIELD_Y + FIELD_H);
+  veil.addColorStop(0, 'rgba(14, 24, 11, 0.52)');
+  veil.addColorStop(0.55, 'rgba(14, 24, 11, 0.66)');
+  veil.addColorStop(1, 'rgba(10, 18, 8, 0.82)');
+  ctx.fillStyle = veil;
   ctx.fillRect(FIELD_X, FIELD_Y, FIELD_W, FIELD_H);
   const cx = FIELD_X + FIELD_W / 2;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 5;
+  text(ctx, 'BLOOMHOLD', cx, FIELD_Y + 128, '900 84px system-ui, sans-serif', '#3d6128', 'center');
+  ctx.shadowColor = 'rgba(255, 179, 64, 0.45)';
+  ctx.shadowBlur = 26;
+  ctx.shadowOffsetY = 0;
   text(ctx, 'BLOOMHOLD', cx, FIELD_Y + 128, '900 84px system-ui, sans-serif', '#fff7ea', 'center');
+  ctx.restore();
   ctx.strokeStyle = COLORS.accent;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(cx - 240, FIELD_Y + 146); ctx.lineTo(cx + 240, FIELD_Y + 146); ctx.stroke();
+  // A garland of little blooms along the rule.
+  for (let i = 0; i < 9; i++) {
+    const gx = cx - 240 + i * 60;
+    ctx.fillStyle = ['#ff8fb3', '#ffd94d', '#c9a0ff'][i % 3];
+    for (let p = 0; p < 5; p++) {
+      const a = (p / 5) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.ellipse(gx + Math.cos(a) * 3.6, FIELD_Y + 146 + Math.sin(a) * 3.6, 2.7, 1.8, a, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#ffb340';
+    ctx.beginPath(); ctx.arc(gx, FIELD_Y + 146, 2, 0, Math.PI * 2); ctx.fill();
+  }
   text(ctx, 'A garden tower-defense. The blight bugs are coming for the Heartbloom —',
     cx, FIELD_Y + 182, '16px system-ui, sans-serif', COLORS.text, 'center');
   text(ctx, 'plant a living wall of flowers and hold all 24 waves.',
@@ -702,9 +935,10 @@ function drawTitle(ctx, state) {
     '🌸  6 flower towers · 3 growth levels each',
     '🐛  8 bug kinds — armored beetles, flying wasps, splitting mites',
     '👑  2 bosses: the Blight Brute & the Rot Pumpkin',
+    '🌟  8 stackable Blessings, one offered after every wave',
     '✿  Pollen economy: bounties, wave interest & Sunbloom income',
   ];
-  feats.forEach((f, i) => text(ctx, f, cx, FIELD_Y + 248 + i * 27,
+  feats.forEach((f, i) => text(ctx, f, cx, FIELD_Y + 240 + i * 26,
     '600 15.5px system-ui, sans-serif', COLORS.dim, 'center'));
   const btn = { x: cx - 130, y: FIELD_Y + 386, w: 260, h: 58 };
   state.ui.startBtn = btn;
@@ -735,6 +969,10 @@ function drawEndScreen(ctx, state, won) {
     ['Lives remaining', String(Math.max(0, s.lives))],
     ['Towers standing', String(s.towers)],
   ];
+  if (state.blessings && state.blessings.length) {
+    rows.push(['Blessings taken',
+      state.blessings.map((id) => BLESSINGS[id].icon).join(' ')]);
+  }
   const pw = 420;
   ctx.fillStyle = 'rgba(38, 58, 32, 0.92)';
   rr(ctx, cx - pw / 2, 262, pw, rows.length * 30 + 24, 12); ctx.fill();
@@ -772,6 +1010,7 @@ export function render(ctx, state) {
   drawSidebar(ctx, state);
   drawLog(ctx, state);
   if (state.phase === 'play') drawBanner(ctx, state);
+  if (state.phase === 'play') drawBlessings(ctx, state);
   if (state.phase === 'title') drawTitle(ctx, state);
   if (state.phase === 'won') drawEndScreen(ctx, state, true);
   if (state.phase === 'lost') drawEndScreen(ctx, state, false);

@@ -6,6 +6,8 @@
 // (9), the Blight Brute boss (12) and the Rot Pumpkin finale (24).
 // Wave compositions grow in count and mix; hit points scale separately
 // (see waveHpMul in enemies.js).
+// Wave compositions grow in count and mix; hit points scale separately
+// (see waveHpMul in enemies.js).
 
 function g(type, count, gap) {
   return { type, count, gap };

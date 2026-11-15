@@ -10,7 +10,8 @@ import { ENEMIES, makeEnemy, waveHpMul } from './enemies.js';
 import { TOWERS, towerStats, makeTower } from './towers.js';
 import { WAVES, TOTAL_WAVES, waveSchedule } from './waves.js';
 import { fireProjectile, stepProjectiles } from './projectiles.js';
-import { burst, sparkle, floater, stepParticles } from './particles.js';
+import { burst, sparkle, floater, hitSpark, mote, stepParticles } from './particles.js';
+import { freshMods, rollOffer } from './blessings.js';
 import { sfx } from './audio.js';
 
 export const START_POLLEN = 170;
@@ -21,6 +22,7 @@ export function createWorld(seed) {
   const waypoints = PATH_CELLS.map(([c, r]) => cellCenter(c, r));
   const state = {
     rng,
+    offerRng: makeRng((seed ^ 0xb1e55) >>> 0), // blessings roll apart
     seed,
     time: 0,
     phase: 'title', // title | play | won | lost
@@ -49,6 +51,10 @@ export function createWorld(seed) {
     hoverCell: null,
     mouse: { x: 0, y: 0 },
     banner: null, // { text, sub, until }
+    mods: freshMods(), // run-wide blessing modifiers (blessings.js)
+    blessings: [], // blessing ids taken this run, in order
+    offer: null, // blessing ids currently offered, or null
+    moteTimer: 0, // ambient drifting spores/fireflies spawn clock
     log: 'Plant flowers on the grass. Stop the blight bugs!',
     speed: 1,
     paused: false,
@@ -60,21 +66,23 @@ export function createWorld(seed) {
   return state;
 }
 
-/** Deterministic garden decoration: flower tufts, stones, grass blades. */
+/** Deterministic garden decoration: tufts, flowers, bushes, mushrooms,
+ * clover patches, pebbles and stones scattered off the path. */
 function makeDecor(rng) {
   const keys = pathCellKeys();
   const decor = [];
-  for (let i = 0; i < 210; i++) {
+  for (let i = 0; i < 340; i++) {
     const c = Math.floor(rng() * 16);
     const r = Math.floor(rng() * 10);
     if (keys.has(c + ',' + r)) continue;
     if (c === HEART_CELL.c && r === HEART_CELL.r) continue;
     const x = 8 + c * 64 + randRange(rng, 8, 56);
     const y = 62 + r * 64 + randRange(rng, 8, 56);
-    const kind = rng();
+    const k = rng();
     decor.push({
       x, y,
-      kind: kind < 0.45 ? 'tuft' : kind < 0.75 ? 'flower' : 'stone',
+      kind: k < 0.34 ? 'tuft' : k < 0.58 ? 'flower' : k < 0.7 ? 'bush' :
+        k < 0.8 ? 'clover' : k < 0.88 ? 'mushroom' : k < 0.95 ? 'pebbles' : 'stone',
       color: ['#ff8fb3', '#ffd94d', '#c9a0ff', '#ffffff', '#ff9d5c'][Math.floor(rng() * 5)],
       s: randRange(rng, 0.7, 1.3),
     });
@@ -140,6 +148,7 @@ export function sellTower(state, tower, value) {
 export function startWave(state) {
   if (state.waveActive || state.phase !== 'play') return false;
   if (state.wave >= TOTAL_WAVES) return false;
+  state.offer = null; // an unpicked blessing wilts when the wave is sent
   state.wave += 1;
   state.schedule = waveSchedule(state.wave);
   state.spawned = 0;
@@ -159,7 +168,7 @@ export function startWave(state) {
 function finishWave(state) {
   state.waveActive = false;
   const bonus = 20 + state.wave * 2;
-  const interest = Math.min(50, Math.floor(state.pollen * 0.05));
+  const interest = Math.min(state.mods.interestCap, Math.floor(state.pollen * 0.05));
   state.pollen += bonus + interest;
   state.earned += bonus + interest;
   state.score += 100 + state.wave * 25;
@@ -167,8 +176,10 @@ function finishWave(state) {
     winGame(state);
     return;
   }
+  // The garden offers a blessing before the next wave.
+  state.offer = rollOffer(state.offerRng);
   log(state, 'Wave ' + state.wave + ' cleared! Bonus +' + bonus +
-    ' pollen, interest +' + interest + '.');
+    ' pollen, interest +' + interest + '. Choose a blessing!');
   banner(state, 'Wave cleared!', '+' + (bonus + interest) + ' pollen', 1.6);
   if (state.soundOn) sfx.coin();
 }
@@ -206,6 +217,8 @@ export function hitEnemy(state, enemy, rawDamage, source, extra = {}) {
   if (enemy.dead || enemy.reached) return;
   const dmg = Math.max(1, rawDamage - enemy.def.armor);
   enemy.hp -= dmg;
+  enemy.flashUntil = state.time + 0.07;
+  if (state.particles.length < 600) hitSpark(state, enemy.x, enemy.y, '#fff6d8');
   if (extra.slowFactor) {
     const resist = enemy.def.slowResist || 0;
     const factor = 1 - (1 - extra.slowFactor) * (1 - resist);
@@ -227,15 +240,16 @@ function killEnemy(state, enemy, source) {
   enemy.dead = true;
   state.kills += 1;
   if (source) source.kills += 1;
-  state.pollen += enemy.def.bounty;
-  state.earned += enemy.def.bounty;
+  const bounty = Math.round(enemy.def.bounty * state.mods.bounty);
+  state.pollen += bounty;
+  state.earned += bounty;
   state.score += enemy.def.bounty * 10 + state.wave * 2;
   burst(state, enemy.x, enemy.y, enemy.def.color, enemy.def.boss ? 30 : 9,
     enemy.def.boss ? 200 : 110, 0.6, 4);
   sparkle(state, enemy.x, enemy.y - 6, '#ffd94d');
   if (enemy.def.boss) {
-    banner(state, enemy.def.name + ' felled!', '+' + enemy.def.bounty + ' pollen', 2.4);
-    floater(state, enemy.x, enemy.y - 30, '+' + enemy.def.bounty, '#ffd94d');
+    banner(state, enemy.def.name + ' felled!', '+' + bounty + ' pollen', 2.4);
+    floater(state, enemy.x, enemy.y - 30, '+' + bounty, '#ffd94d');
   }
   if (state.soundOn) sfx.pop();
   if (enemy.def.splitsInto) {
@@ -316,7 +330,7 @@ function towerTarget(state, tower, stats) {
 
 function stepTowers(state, dt) {
   for (const tower of state.towers) {
-    const stats = towerStats(tower.type, tower.level);
+    const stats = towerStats(tower.type, tower.level, state.mods);
     tower.recoil = Math.max(0, tower.recoil - dt * 6);
     if (tower.type === 'sunbloom') {
       tower.incomeTimer += dt;
@@ -423,6 +437,14 @@ export function stepWorld(state) {
     stepEnemies(state, dt);
     stepTowers(state, dt);
     stepProjectiles(state, dt, hitEnemy);
+    // Ambient life: a drifting spore or firefly every third of a second.
+    state.moteTimer -= dt;
+    if (state.moteTimer <= 0 && state.particles.length < 500) {
+      state.moteTimer = 0.33;
+      mote(state,
+        8 + state.rng() * 1024,
+        62 + state.rng() * 640);
+    }
   }
   stepParticles(state, dt);
 }

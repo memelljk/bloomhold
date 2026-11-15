@@ -6,6 +6,7 @@
 
 import { createWorld, placeTower, startWave, stepWorld } from './world.js';
 import { makeEnemy } from './enemies.js';
+import { sparkle } from './particles.js';
 import { STEP } from './config.js';
 
 function steps(state, seconds) {
@@ -58,7 +59,8 @@ const GARDEN_PLAN = [
   ['sunbloom', 14, 2, 2], ['hive', 5, 4, 2], ['orchid', 9, 5, 3],
   ['archer', 2, 5, 1], ['mortar', 6, 7, 2], ['frost', 10, 7, 3],
   ['hive', 13, 7, 2], ['sunbloom', 1, 8, 1], ['archer', 8, 8, 2],
-  ['orchid', 5, 2, 2],
+  ['orchid', 5, 2, 2], ['frost', 1, 0, 2], ['hive', 15, 4, 2],
+  ['archer', 7, 9, 2], ['sunbloom', 12, 9, 1],
 ];
 
 export function sceneTitle(seed) {
@@ -74,6 +76,11 @@ export function sceneTitle(seed) {
     state.enemies.push(placeOnPath(state, makeEnemy(type, 1, 0, 0, state.rng), dist));
   }
   state.particles = []; // planting bursts are noise on a posed cover
+  // …but a dusting of pollen sparkles over the garden is pure cover art.
+  for (let i = 0; i < 34; i++) {
+    sparkle(state, 40 + state.rng() * 950, 90 + state.rng() * 580,
+      i % 3 ? '#ffd94d' : '#ffd1e8');
+  }
   state.time = 3.7; // pose the ambient animation mid-beat
   state.pollen = 170;
   state.log = 'Plant flowers on the grass. Stop the blight bugs!';
@@ -105,28 +112,32 @@ export function sceneBattle(seed) {
     ['mortar', 12, 0, 2], ['sunbloom', 14, 1, 2], ['hive', 5, 4, 2],
     ['orchid', 8, 5, 2], ['archer', 2, 5, 3], ['frost', 11, 4, 1],
     ['mortar', 6, 7, 3], ['hive', 13, 7, 2], ['sunbloom', 1, 8, 1],
-    ['archer', 9, 8, 2], ['orchid', 4, 7, 1],
+    ['archer', 9, 8, 2], ['orchid', 4, 7, 1], ['frost', 12, 4, 2],
+    ['orchid', 14, 4, 2], ['mortar', 11, 9, 2], ['archer', 12, 5, 1],
   ]);
-  state.wave = 8;
-  state.kills = 214;
-  state.score = 5310;
+  state.wave = 9;
+  state.kills = 268;
+  state.score = 6840;
   state.lives = 18;
-  startWave(state); // wave 9: splitters + mites
+  state.blessings = ['sunpetals', 'golden'];
+  startWave(state); // wave 10: gloom snails, wasps, aphids
   steps(state, 5);
   // A second front deep in the garden: every tower row has a target.
   inject(state, [
     ['beetle', 1080], ['aphid', 1180], ['wasp', 1330], ['splitter', 1470],
     ['snail', 1620], ['aphid', 1560], ['mite', 1690], ['aphid', 1760],
     ['wasp', 1900], ['beetle', 2030], ['splitter', 2180], ['mite', 2300],
+    ['snail', 2450], ['wasp', 2560], ['aphid', 960],
+    ['mite', 1240], ['beetle', 2130], ['aphid', 2620], ['splitter', 1390],
   ]);
-  steps(state, 2.4);
+  steps(state, 1.7);
   state.pollen = 236;
   state.selected = busiestTower(state);
   // The scene is a mid-campaign pose: credit the veteran on display with
   // a kill count that matches the campaign totals above.
   if (state.selected) state.selected.kills = Math.max(state.selected.kills, 23);
   state.banner = null;
-  state.log = 'Wave 9 — splitters burst into mites when popped. Frost helps!';
+  state.log = 'Wave 10 — gloom snails shrug off petals. Frost and thorns bite!';
   return state;
 }
 
@@ -139,11 +150,13 @@ export function sceneBoss(seed) {
     ['orchid', 8, 5, 3], ['archer', 2, 5, 3], ['frost', 11, 4, 3],
     ['mortar', 6, 7, 3], ['hive', 13, 7, 3], ['sunbloom', 1, 8, 2],
     ['archer', 9, 8, 3], ['mortar', 4, 7, 2], ['frost', 14, 5, 2],
+    ['orchid', 15, 4, 2], ['archer', 7, 9, 3],
   ]);
   state.wave = 23;
   state.kills = 587;
   state.score = 15980;
   state.lives = 14;
+  state.blessings = ['sunpetals', 'longroots', 'winter', 'golden'];
   startWave(state); // wave 24: the Rot Pumpkin
   steps(state, 14); // the aphid vanguard is met and thinned by the towers
   // Walk the boss deep into the garden for the portrait, with an
@@ -172,6 +185,7 @@ export function sceneWin(seed) {
   state.particles = [];
   state.phase = 'won';
   state.wave = 24;
+  state.blessings = ['sunpetals', 'golden', 'longroots', 'spring', 'winter'];
   state.kills = 642;
   state.leaks = 3;
   state.earned = 5480;
