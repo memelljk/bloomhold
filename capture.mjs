@@ -110,15 +110,18 @@ try {
     const outPath = join(here, 'screenshots', shot.name);
     execFileSync('python3', ['-c', `
 from PIL import Image
-import sys
+import sys, os
 im = Image.open(sys.argv[1]).convert('RGB')
 print('dims', im.size)
-q = 76
+# BLOOM_JPEG_Q overrides the starting quality. Default 50 since the
+# round-2 dossier diet: at contact-sheet scale q50 frames read the
+# same as q76 on this flat-color art, for ~2/3 of the bytes (measured
+# in bestgame-v4-progress.md). The cap loop below still applies.
+q = int(os.environ.get('BLOOM_JPEG_Q', '50'))
 while True:
     im.save(sys.argv[2], 'JPEG', quality=q)
-    import os
     size = os.path.getsize(sys.argv[2])
-    if size <= 250000 or q <= 60:
+    if size <= 250000 or q <= 40:
         print('jpeg bytes', size, 'quality', q)
         break
     q -= 6

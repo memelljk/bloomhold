@@ -26,6 +26,21 @@ flower towers along their winding dirt path and hold **all 24 waves**.
 - Full HUD (pollen, lives, wave, score, kills), wave previews, pause and
   ×1/×2/×3 speed, procedural WebAudio sound, and win/lose screens with a
   score breakdown and restart.
+- **A farming year**: the 24 waves are four seasons (Spring, Summer,
+  Autumn, Winter) with their own palettes, weather and farm props —
+  crop rows, a farmhouse, a scarecrow, one wandering hen. Towers grow
+  through visible stages: seed mound → sprout → full bloom.
+- **Blessings & Harvest Festivals**: after every wave the garden offers
+  1 of 3 stackable blessings; when a season turns, the choice is framed
+  as a Harvest Festival.
+- **Everbloom** (endless mode): win the campaign and the victory screen
+  offers to keep the same garden into procedurally scaling waves 25+ —
+  a score chase that ends only when the Heartbloom falls.
+- **Lucky Sprout**: a 3-reel garden slot between waves — spin pollen
+  for jackpots, a random blessing, +lives or a Bee Frenzy (bounded,
+  hard-capped, rolls on its own seeded stream).
+- **Field guide**: an in-game bestiary panel whose rows are derived
+  from the actual enemy/tower data, so it can never drift from the game.
 
 ## Run it
 

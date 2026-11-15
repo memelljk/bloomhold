@@ -4,8 +4,11 @@
 // screenshots are honest renders of the game mid-play, reproducible to
 // the pixel from the seed.
 
-import { createWorld, placeTower, startWave, stepWorld } from './world.js';
+import {
+  createWorld, placeTower, startWave, stepWorld, enterEndless, trySpin,
+} from './world.js';
 import { makeEnemy } from './enemies.js';
+import { endlessHpMul } from './endless.js';
 import { sparkle } from './particles.js';
 import { STEP } from './config.js';
 
@@ -201,9 +204,100 @@ export function sceneWin(seed) {
   return state;
 }
 
+/** The field guide open over an autumn fight (wave 15). */
+export function sceneGuide(seed) {
+  const state = createWorld(seed);
+  state.phase = 'play';
+  plant(state, [
+    ['archer', 4, 0, 2], ['archer', 7, 0, 2], ['frost', 10, 2, 3],
+    ['mortar', 12, 0, 2], ['sunbloom', 14, 1, 2], ['hive', 5, 4, 3],
+    ['orchid', 8, 5, 3], ['archer', 2, 5, 2], ['frost', 11, 4, 2],
+    ['mortar', 6, 7, 3], ['hive', 13, 7, 2], ['sunbloom', 1, 8, 2],
+    ['archer', 9, 8, 3], ['orchid', 4, 7, 2], ['frost', 12, 4, 2],
+    ['orchid', 14, 4, 3], ['mortar', 11, 9, 2],
+  ]);
+  state.wave = 14;
+  state.kills = 402;
+  state.score = 11230;
+  state.lives = 17;
+  state.blessings = ['sunpetals', 'golden', 'winter'];
+  startWave(state); // wave 15: splitters and gloom snails, in autumn
+  steps(state, 6);
+  inject(state, [
+    ['splitter', 1180], ['snail', 1420], ['mite', 1560], ['aphid', 1750],
+    ['splitter', 1980], ['snail', 2240], ['wasp', 2050],
+  ]);
+  steps(state, 1.2);
+  state.pollen = 288;
+  state.showGuide = true;
+  state.banner = null;
+  state.log = 'The field guide — every bug & bloom, from the garden\u2019s own records.';
+  return state;
+}
+
+/** The Lucky Sprout panel in the lull after wave 17 (autumn): the
+ * full garden idles behind the panel — pumpkins in the crop rows,
+ * leaves in the air — and one honest spin on the scene's own luck
+ * stream has just landed. */
+export function sceneSlot(seed) {
+  const state = createWorld(seed);
+  state.phase = 'play';
+  plant(state, GARDEN_PLAN);
+  state.wave = 17;
+  state.kills = 486;
+  state.score = 13920;
+  state.lives = 16;
+  state.blessings = ['sunpetals', 'golden', 'winter', 'spring'];
+  state.pollen = 300;
+  state.showSpin = true;
+  trySpin(state); // legal here: between waves, no offer, pollen paid
+  steps(state, 2.4); // the reels land and the paytable settles
+  state.banner = null;
+  state.log = 'Between waves, the Lucky Sprout offers a spin…';
+  return state;
+}
+
+/** Everbloom: the endless titan of wave 34, fought in high summer of
+ * the second year, by a garden that already won once. */
+export function sceneEndless(seed) {
+  const state = createWorld(seed);
+  plant(state, GARDEN_PLAN);
+  for (const t of state.towers) { t.level = 3; t.spent += 100; }
+  state.phase = 'won'; // the garden won its campaign…
+  state.wave = 24;
+  state.kills = 655;
+  state.score = 76900;
+  state.lives = 12;
+  state.blessings = ['sunpetals', 'golden', 'longroots', 'spring', 'winter', 'swiftsap'];
+  enterEndless(state); // …and chose to keep going
+  state.wave = 33;
+  startWave(state); // wave 34: an Everbloom titan (every 5th wave)
+  steps(state, 13);
+  // The scheduled titan marches in late (~80 s in); pose it mid-path
+  // at the wave's true scaling, the same way sceneBoss poses its own.
+  const boss = makeEnemy('titan', endlessHpMul(34) * 1.25, 0, 0, state.rng);
+  state.enemies.push(boss);
+  placeOnPath(state, boss, 1560);
+  boss.hp = Math.round(boss.maxHp * 0.58);
+  inject(state, [
+    ['wasp', 1080], ['beetle', 1230], ['splitter', 1390], ['wasp', 1830],
+    ['snail', 1990], ['beetle', 2150], ['splitter', 2310], ['mite', 2440],
+  ]);
+  steps(state, 1.6);
+  state.pollen = 356;
+  state.selected = busiestTower(state);
+  if (state.selected) state.selected.kills = Math.max(state.selected.kills, 74);
+  state.banner = null;
+  state.log = 'Everbloom wave 34 — the titan returns, tougher than ever. Hold!';
+  return state;
+}
+
 export function buildScene(name, seed) {
   if (name === 'battle') return sceneBattle(seed);
   if (name === 'boss') return sceneBoss(seed);
   if (name === 'win') return sceneWin(seed);
+  if (name === 'guide') return sceneGuide(seed);
+  if (name === 'slot') return sceneSlot(seed);
+  if (name === 'endless') return sceneEndless(seed);
   return sceneTitle(seed);
 }

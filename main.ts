@@ -6,13 +6,20 @@
 // /output/dossier.json, the summary the judge reads, with the vendored
 // make.fun library.
 //
-// The game: a garden tower-defense. Blight bugs march a winding dirt
-// path toward the Heartbloom; the player plants six kinds of flower
-// towers (three growth levels each), earns pollen from bounties and
+// The game: a garden tower-defense with a farming-sim soul. Blight
+// bugs march a winding dirt path toward the Heartbloom; the player
+// plants six kinds of flower towers (three growth stages each —
+// sprout, young plant, full bloom), earns pollen from bounties and
 // interest, and must hold all 24 waves — armored beetles, flying wasps,
-// splitting mites, and two bosses included — with a full HUD, a shop,
-// upgrades, selling, pause and speed controls, and win/lose screens
-// with a score and restart.
+// splitting mites, and two bosses included. The campaign is a year:
+// four seasons (spring blossom to winter snow) turn every six waves,
+// each season's end frames the between-wave Blessing choice as a
+// Harvest Festival. Beyond the campaign waits Everbloom, an endless
+// score chase of procedurally scaling waves; between waves the Lucky
+// Sprout slot machine spins pollen into jackpots, blessings and bee
+// frenzies; and a field guide (bestiary) is derived live from the
+// game's own data. Full HUD, shop, upgrades, selling, pause and speed
+// controls, and win/lose screens with a score and restart.
 //
 // Put 3 or 4 PNG or JPEG screenshots in screenshots/ (the first by name
 // is the cover) and run it.

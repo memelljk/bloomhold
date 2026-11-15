@@ -8,6 +8,7 @@
 
 import { W, H, STEP } from './config.js';
 import { createWorld, stepWorld } from './world.js';
+import { seasonForWave } from './seasons.js';
 import { render } from './render.js';
 import { attachInput } from './input.js';
 import { buildScene, sceneTitle } from './shots.js';
@@ -69,7 +70,10 @@ if (shot) {
     statusTimer += elapsed;
     if (statusTimer > 1 && status) {
       statusTimer = 0;
-      status.textContent = 'Wave ' + Math.max(1, state.wave) + ' of 24. ' +
+      status.textContent = (state.mode === 'endless'
+        ? 'Everbloom wave ' + state.wave
+        : 'Wave ' + Math.max(1, state.wave) + ' of 24') +
+        ' · ' + seasonForWave(state.wave).name + '. ' +
         state.lives + ' lives. ' + Math.floor(state.pollen) + ' pollen. Score ' + state.score + '.';
     }
     requestAnimationFrame(frame);

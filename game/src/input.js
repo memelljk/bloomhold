@@ -5,13 +5,28 @@
 import { cellAt, FIELD_X, FIELD_Y, FIELD_W, FIELD_H } from './config.js';
 import { TOWER_ORDER, TOWERS, upgradeCost, sellValue } from './towers.js';
 import {
-  placeTower, doUpgrade, sellTower, startWave, log,
+  placeTower, doUpgrade, sellTower, startWave, log, trySpin, enterEndless,
 } from './world.js';
 import { BLESSINGS, takeBlessing } from './blessings.js';
 import { ensureAudio } from './audio.js';
 
 function inRect(x, y, r) {
   return r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+}
+
+/** The Lucky Sprout panel opens only in the between-wave lull, and
+ * never over an unpicked blessing — the garden's gift comes first. */
+function toggleSpinPanel(state) {
+  if (state.showSpin) { state.showSpin = false; return; }
+  if (state.offer) {
+    log(state, 'Pick the blessing first — the Lucky Sprout waits.');
+    return;
+  }
+  if (state.waveActive) {
+    log(state, 'The Lucky Sprout only spins between waves.');
+    return;
+  }
+  state.showSpin = true;
 }
 
 export function attachInput(canvas, hooks) {
@@ -49,6 +64,10 @@ export function attachInput(canvas, hooks) {
       return;
     }
     if (state.phase === 'won' || state.phase === 'lost') {
+      if (state.phase === 'won' && inRect(x, y, ui.endlessBtn)) {
+        enterEndless(state);
+        return;
+      }
       if (inRect(x, y, ui.restartBtn)) hooks.onRestart();
       return;
     }
@@ -61,6 +80,16 @@ export function attachInput(canvas, hooks) {
     if (inRect(x, y, ui.pauseBtn)) { state.paused = !state.paused; return; }
     if (inRect(x, y, ui.muteBtn)) { state.muted = !state.muted; return; }
     if (inRect(x, y, ui.waveBtn)) { startWave(state); return; }
+    if (inRect(x, y, ui.guideBtn)) {
+      state.showGuide = !state.showGuide;
+      return;
+    }
+    if (inRect(x, y, ui.spinBtn)) {
+      toggleSpinPanel(state);
+      return;
+    }
+    if (inRect(x, y, ui.slotSpinBtn)) { trySpin(state); return; }
+    if (inRect(x, y, ui.slotCloseBtn)) { state.showSpin = false; return; }
 
     if (ui.blessingCards) {
       for (const card of ui.blessingCards) {
@@ -138,9 +167,18 @@ export function attachInput(canvas, hooks) {
       if (state.selected) doUpgrade(state, state.selected, upgradeCost(state.selected));
     } else if (ev.key === 's' || ev.key === 'S') {
       if (state.selected) sellTower(state, state.selected, sellValue(state.selected));
+    } else if (ev.key === 'g' || ev.key === 'G') {
+      state.showGuide = !state.showGuide;
+    } else if (ev.key === 'l' || ev.key === 'L') {
+      toggleSpinPanel(state);
     } else if (ev.key === 'Escape') {
-      state.shopSel = null;
-      state.selected = null;
+      if (state.showGuide || state.showSpin) {
+        state.showGuide = false;
+        state.showSpin = false;
+      } else {
+        state.shopSel = null;
+        state.selected = null;
+      }
     }
   });
 }
