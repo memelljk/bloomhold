@@ -41,6 +41,17 @@ flower towers along their winding dirt path and hold **all 24 waves**.
   hard-capped, rolls on its own seeded stream).
 - **Field guide**: an in-game bestiary panel whose rows are derived
   from the actual enemy/tower data, so it can never drift from the game.
+- **Bloom Quests**: six garden trials (pop 150 bugs, stand 4 towers at
+  full bloom, hold 3 leak-free waves, fell a boss, win the year…) with
+  live progress on a quest board — rewards are score only, so the
+  garden's balance is never touched.
+- **Mission ranks**: every cleared wave is graded S/A/B/C by its leaks
+  (S = flawless), paid in score, tallied on the end screen, and flown
+  as a rank flag at the Heartbloom.
+- **Mystery Seed Blocks**: golden blocks hover by the path each wave;
+  a bug brushing one pops it for +40 score.
+- **Compost Barrels** (Everbloom): barrels parked on the path explode
+  for heavy splash damage — with screen shake — when shot open.
 
 ## Run it
 

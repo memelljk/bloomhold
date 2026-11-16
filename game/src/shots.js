@@ -8,6 +8,7 @@ import {
   createWorld, placeTower, startWave, stepWorld, enterEndless, trySpin,
 } from './world.js';
 import { makeEnemy } from './enemies.js';
+import { checkQuests } from './quests.js';
 import { endlessHpMul } from './endless.js';
 import { sparkle } from './particles.js';
 import { STEP } from './config.js';
@@ -63,7 +64,8 @@ const GARDEN_PLAN = [
   ['archer', 2, 5, 1], ['mortar', 6, 7, 2], ['frost', 10, 7, 3],
   ['hive', 13, 7, 2], ['sunbloom', 1, 8, 1], ['archer', 8, 8, 2],
   ['orchid', 5, 2, 2], ['frost', 1, 0, 2], ['hive', 15, 4, 2],
-  ['archer', 7, 9, 2], ['sunbloom', 12, 9, 1],
+  ['archer', 7, 9, 2], ['sunbloom', 12, 9, 1], ['frost', 6, 0, 2],
+  ['orchid', 10, 4, 2], ['hive', 7, 4, 2],
 ];
 
 export function sceneTitle(seed) {
@@ -76,11 +78,14 @@ export function sceneTitle(seed) {
     ['beetle', 2050], ['aphid', 2300],
   ];
   for (const [type, dist] of parade) {
-    state.enemies.push(placeOnPath(state, makeEnemy(type, 1, 0, 0, state.rng), dist));
+    // Parade bugs are posed at ×5 HP so the cover fight lasts.
+    state.enemies.push(placeOnPath(state, makeEnemy(type, 5, 0, 0, state.rng), dist));
   }
-  state.particles = []; // planting bursts are noise on a posed cover
+  steps(state, 1.4); // the garden fights behind its own title: petals up
+  state.particles = state.particles.filter((p) => p.kind === 'mote');
+  // planting bursts are noise on a posed cover
   // …but a dusting of pollen sparkles over the garden is pure cover art.
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < 48; i++) {
     sparkle(state, 40 + state.rng() * 950, 90 + state.rng() * 580,
       i % 3 ? '#ffd94d' : '#ffd1e8');
   }
@@ -167,13 +172,19 @@ export function sceneBoss(seed) {
   const boss = state.enemies.find((e) => e.def.boss);
   if (boss) {
     placeOnPath(state, boss, 1740);
-    boss.hp = Math.round(boss.maxHp * 0.62);
+    boss.hp = Math.round(boss.maxHp * 0.38); // posed mid-collapse, not mid-arrival
   }
   inject(state, [
     ['wasp', 1150], ['beetle', 1290], ['splitter', 1440], ['wasp', 1560],
     ['snail', 1930], ['beetle', 2070], ['wasp', 2210], ['splitter', 2330],
   ]);
-  steps(state, 2.4);
+  steps(state, 3.4); // longer settle: more tower fire in the air
+  if (boss && !boss.dead) {
+    for (let i = 0; i < 9; i++) {
+      sparkle(state, boss.x + (state.rng() - 0.5) * 70, boss.y + (state.rng() - 0.5) * 56,
+        i % 2 ? '#ffd94d' : '#ff9d5c');
+    }
+  }
   state.pollen = 412;
   state.selected = busiestTower(state);
   if (state.selected) state.selected.kills = Math.max(state.selected.kills, 57);
@@ -235,10 +246,8 @@ export function sceneGuide(seed) {
   return state;
 }
 
-/** The Lucky Sprout panel in the lull after wave 17 (autumn): the
- * full garden idles behind the panel — pumpkins in the crop rows,
- * leaves in the air — and one honest spin on the scene's own luck
- * stream has just landed. */
+/** The Lucky Sprout panel in the lull after wave 17 (autumn), one
+ * honest spin on the scene's own luck stream just landed. */
 export function sceneSlot(seed) {
   const state = createWorld(seed);
   state.phase = 'play';
@@ -262,6 +271,12 @@ export function sceneSlot(seed) {
 export function sceneEndless(seed) {
   const state = createWorld(seed);
   plant(state, GARDEN_PLAN);
+  // A second planting fills the calm mid-field: a veteran garden at
+  // wave 34 stands dense, not decorative.
+  plant(state, [
+    ['archer', 6, 0, 3], ['frost', 3, 2, 3], ['orchid', 10, 4, 3],
+    ['hive', 7, 4, 3], ['sunbloom', 14, 9, 2], ['mortar', 2, 9, 3],
+  ]);
   for (const t of state.towers) { t.level = 3; t.spent += 100; }
   state.phase = 'won'; // the garden won its campaign…
   state.wave = 24;
@@ -280,15 +295,42 @@ export function sceneEndless(seed) {
   placeOnPath(state, boss, 1560);
   boss.hp = Math.round(boss.maxHp * 0.58);
   inject(state, [
+    ['aphid', 520], ['mite', 640], ['beetle', 770],
     ['wasp', 1080], ['beetle', 1230], ['splitter', 1390], ['wasp', 1830],
     ['snail', 1990], ['beetle', 2150], ['splitter', 2310], ['mite', 2440],
   ]);
-  steps(state, 1.6);
+  steps(state, 3.2);
+  // The wave's own barrels were shot open during the settle (that is
+  // their job); pose two fresh ones with lit fuses — one just ahead
+  // of the titan where its escort bunches, one deep on the last bend.
+  for (const dist of [1470, 2280]) {
+    state.enemies.push(placeOnPath(state, makeEnemy('barrel', 1, 0, 0, state.rng), dist));
+  }
+  for (let i = 0; i < 9; i++) {
+    sparkle(state, boss.x + (state.rng() - 0.5) * 80, boss.y + (state.rng() - 0.5) * 60,
+      i % 2 ? '#ffd94d' : '#ff9d5c');
+  }
   state.pollen = 356;
   state.selected = busiestTower(state);
   if (state.selected) state.selected.kills = Math.max(state.selected.kills, 74);
   state.banner = null;
   state.log = 'Everbloom wave 34 — the titan returns, tougher than ever. Hold!';
+  return state;
+}
+
+/** The Bloom Quests board open over the same autumn fight the guide
+ * scene poses: five of the six trials honestly complete (the run's
+ * own counters say so), Year Keeper still open at wave 15. */
+export function sceneQuests(seed) {
+  const state = sceneGuide(seed);
+  state.showGuide = false;
+  state.showQuests = true;
+  state.earned = 3900; // harvest long since banked (guide scene omits it)
+  state.flawless = 3; // three leak-free clears in the bank
+  state.bossKills = 1; // the wave-12 Brute fell to this garden
+  checkQuests(state); // marks the five earned trials, banks their score
+  state.banner = null; // the last completion banner has faded by now
+  state.log = 'The Bloom Quests — five trials done, the Year Keeper still open.';
   return state;
 }
 
@@ -299,5 +341,6 @@ export function buildScene(name, seed) {
   if (name === 'guide') return sceneGuide(seed);
   if (name === 'slot') return sceneSlot(seed);
   if (name === 'endless') return sceneEndless(seed);
+  if (name === 'quests') return sceneQuests(seed);
   return sceneTitle(seed);
 }

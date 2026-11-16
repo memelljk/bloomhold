@@ -1,19 +1,9 @@
-// Everbloom — the endless mode beyond the campaign. When the garden
-// holds all 24 waves, the victory screen offers to keep going: the
-// blight returns in procedurally grown waves, tougher every time, and
-// the run becomes a score chase that ends only when the Heartbloom
-// falls. There is no wave table for Everbloom — compositions and
-// scaling are formulas of the wave number, so the mode is endless by
-// construction and every replay of a wave is identical.
-//
-// Scaling (wave n > 24, endless index k = n − 24):
-//   hit points  endlessHpMul(n) = waveHpMul(24) × 1.16^k — the finale's
-//               toughness, compounding 16% per wave.
-//   counts      each group's count grows ~+9% per wave (rounded, capped
-//               so spawn schedules stay sane), and every 5th endless
-//               wave adds a boss whose escorts swell with k.
-//   score       clearing wave n pays a 250·k Everbloom bonus (world.js),
-//               so deeper runs are worth strictly more.
+// Everbloom — the endless mode beyond the campaign: after wave 24
+// the blight returns in procedurally grown waves and the run becomes
+// a score chase. No wave table — compositions and scaling are
+// formulas of the wave number (k = n − 24): HP = waveHpMul(24) ×
+// 1.16^k, group counts +9%/wave (capped), a boss every 5th wave,
+// and a 250·k clear bonus, so deeper runs pay strictly more.
 
 import { waveHpMul } from './enemies.js';
 
@@ -23,9 +13,8 @@ function g(type, count, gap) {
   return { type, count, gap };
 }
 
-/** The rotating recipe book: endless wave k draws three consecutive
- * recipes (wrapping), so consecutive waves feel related but never
- * repeat outright. Counts in the recipes are the k = 1 baseline. */
+/** The recipe book: endless wave k draws three consecutive recipes
+ * (wrapping). Counts are the k = 1 baseline. */
 const RECIPES = [
   [g('aphid', 14, 0.4), g('mite', 10, 0.3)],
   [g('beetle', 8, 0.8), g('wasp', 8, 0.6)],
@@ -70,6 +59,12 @@ export function endlessSchedule(waveNumber) {
     }
     t += 2.2; // breather between groups
   }
+  // Two compost barrels roll in with every Everbloom wave, parked
+  // on the path where the march will bunch up behind them — shoot
+  // one at the right moment and the splash does the gardening.
+  // Everbloom only: the campaign's proven balance keeps no barrels.
+  out.push({ type: 'barrel', at: 6 }, { type: 'barrel', at: 26 });
+  out.sort((a, b) => a.at - b.at);
   return out;
 }
 

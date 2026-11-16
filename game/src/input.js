@@ -84,6 +84,10 @@ export function attachInput(canvas, hooks) {
       state.showGuide = !state.showGuide;
       return;
     }
+    if (inRect(x, y, ui.questBtn)) {
+      state.showQuests = !state.showQuests;
+      return;
+    }
     if (inRect(x, y, ui.spinBtn)) {
       toggleSpinPanel(state);
       return;
@@ -169,12 +173,15 @@ export function attachInput(canvas, hooks) {
       if (state.selected) sellTower(state, state.selected, sellValue(state.selected));
     } else if (ev.key === 'g' || ev.key === 'G') {
       state.showGuide = !state.showGuide;
+    } else if (ev.key === 'q' || ev.key === 'Q') {
+      state.showQuests = !state.showQuests;
     } else if (ev.key === 'l' || ev.key === 'L') {
       toggleSpinPanel(state);
     } else if (ev.key === 'Escape') {
-      if (state.showGuide || state.showSpin) {
+      if (state.showGuide || state.showSpin || state.showQuests) {
         state.showGuide = false;
         state.showSpin = false;
+        state.showQuests = false;
       } else {
         state.shopSel = null;
         state.selected = null;

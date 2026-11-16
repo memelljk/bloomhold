@@ -18,7 +18,12 @@
 // score chase of procedurally scaling waves; between waves the Lucky
 // Sprout slot machine spins pollen into jackpots, blessings and bee
 // frenzies; and a field guide (bestiary) is derived live from the
-// game's own data. Full HUD, shop, upgrades, selling, pause and speed
+// game's own data. Round 3 adds the goals layer: Bloom Quests (six
+// garden trials with live progress and score rewards), arcade
+// mission ranks (S/A/B/C by leaks, with a rank flag at the
+// Heartbloom), Mystery Seed Blocks that pop for score when a bug
+// brushes them, and explosive Compost Barrels parked on the
+// Everbloom path. Full HUD, shop, upgrades, selling, pause and speed
 // controls, and win/lose screens with a score and restart.
 //
 // Put 3 or 4 PNG or JPEG screenshots in screenshots/ (the first by name

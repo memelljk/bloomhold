@@ -54,6 +54,17 @@ export const ENEMIES = {
     radius: 38, color: '#c25e1e', belly: '#ffb35c',
     flying: false, boss: true, slowResist: 0.65, sheds: 'mite',
   },
+  barrel: {
+    // Not a bug at all: a compost barrel parked on the path in
+    // Everbloom waves. It never walks (speed 0, so it can never
+    // leak); towers shoot it like anything else on the path, and
+    // killing it detonates `explodes` AoE damage (world.js).
+    // fixedHp: wave scaling must not make a barrel tanky.
+    name: 'Compost Barrel',
+    hp: 40, speed: 0, bounty: 0, damage: 0, armor: 0,
+    radius: 15, color: '#b3541e', belly: '#8a6d1d',
+    flying: false, barrel: true, fixedHp: true, explodes: 130,
+  },
 };
 
 let nextId = 1;
@@ -65,8 +76,8 @@ export function makeEnemy(type, hpMul, x, y, rng) {
     type,
     def,
     x, y,
-    hp: Math.round(def.hp * hpMul),
-    maxHp: Math.round(def.hp * hpMul),
+    hp: Math.round(def.hp * (def.fixedHp ? 1 : hpMul)),
+    maxHp: Math.round(def.hp * (def.fixedHp ? 1 : hpMul)),
     wp: 1, // index of the waypoint being walked toward
     dist: 0, // total distance walked (targeting: "first" = greatest dist)
     slowUntil: 0,

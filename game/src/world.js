@@ -15,6 +15,7 @@ import { freshMods, rollOffer } from './blessings.js';
 import { endlessSchedule, endlessHpMul, endlessClearBonus } from './endless.js';
 import { startSpin, settleSpin, SPINS_PER_BREAK } from './luckyspin.js';
 import { seasonForWave, isSeasonTurnWave } from './seasons.js';
+import { checkQuests } from './quests.js';
 import { sfx } from './audio.js';
 
 export const START_POLLEN = 170;
@@ -63,8 +64,19 @@ export function createWorld(seed) {
     spinsTaken: 0, // Lucky Sprout spins this run (end-screen stat)
     spin: null, // current slot spin record (luckyspin.js)
     spinBuff: null, // Bee Frenzy { rate, wavesLeft } or null
+    bossKills: 0, // bosses felled this run (Bloom Quests)
+    flawless: 0, // waves cleared without a single leak (Bloom Quests)
+    waveLeaks: 0, // leaks in the wave currently marching
+    questsDone: [], // Bloom Quest ids completed this run, in order
+    ranks: {}, // wave-clear ranks by letter (arcade mission framing)
+    lastRank: null, // rank of the most recent cleared wave
+    bonusScore: 0, // score paid by score-only systems (quests/ranks/blocks)
+    blocks: [], // this wave's Mystery Seed Blocks (world.stepWorld pops)
+    blocksHit: 0, // seed blocks popped this run (end-screen stat)
+    shake: 0, // seconds of screen shake left (barrel explosions)
     showGuide: false, // field guide overlay (renderer/input only)
     showSpin: false, // Lucky Sprout panel (renderer/input only)
+    showQuests: false, // Bloom Quests board (renderer/input only)
     moteTimer: 0, // ambient drifting spores/fireflies spawn clock
     log: 'Plant flowers on the grass. Stop the blight bugs!',
     speed: 1,
@@ -105,17 +117,15 @@ export function banner(state, text, sub, seconds = 2.2) {
   state.banner = { text, sub, until: state.time + seconds };
 }
 
-/** Hit-point multiplier for the wave being fought: the campaign
- * table, or the Everbloom compounding formula once the run is endless.
- * In campaign mode this is waveHpMul itself, so campaign replays —
- * the autoplayer's included — are untouched. */
+/** HP multiplier for the wave being fought: the campaign table, or
+ * the Everbloom compounding formula once endless. In campaign this
+ * is waveHpMul itself — campaign replays are untouched. */
 export function hpMulFor(state) {
   return state.mode === 'endless' ? endlessHpMul(state.wave) : waveHpMul(state.wave);
 }
 
-/** The modifiers towers actually read: blessing mods, with a Bee
- * Frenzy from the Lucky Sprout folded in while it lasts. Without a
- * frenzy this returns state.mods itself — the campaign path exactly. */
+/** The modifiers towers read: blessing mods, with a Bee Frenzy
+ * folded in while it lasts. No frenzy → state.mods itself. */
 function effectiveMods(state) {
   if (!state.spinBuff) return state.mods;
   return { ...state.mods, rate: state.mods.rate * state.spinBuff.rate };
@@ -147,9 +157,7 @@ export function log(state, msg) {
   state.log = msg;
 }
 
-/* ------------------------------------------------------------------ */
-/* Building                                                            */
-/* ------------------------------------------------------------------ */
+/* --- Building --- */
 
 export function cellBuildable(state, c, r) {
   if (state.pathKeys.has(c + ',' + r)) return false;
@@ -182,6 +190,7 @@ export function doUpgrade(state, tower, cost) {
   burst(state, tower.x, tower.y - 8, '#7ec8ff', 9, 60, 0.45, 2.4);
   if (state.soundOn) sfx.upgrade();
   log(state, TOWERS[tower.type].name + ' grew to level ' + tower.level + '!');
+  checkQuests(state); // a tower reaching full bloom may close a trial
   return true;
 }
 
@@ -193,9 +202,38 @@ export function sellTower(state, tower, value) {
   log(state, TOWERS[tower.type].name + ' sold for ' + value + ' pollen.');
 }
 
-/* ------------------------------------------------------------------ */
-/* Waves                                                               */
-/* ------------------------------------------------------------------ */
+/* --- Waves --- */
+
+/** Two Mystery Seed Blocks float beside the path each wave, at
+ * distances rolled from the wave number: a bug bumping one pops it
+ * for score and a coin sparkle (stepWorld). Pure function of the
+ * run seed + wave, so replays float the same blocks. */
+function seedBlocks(state) {
+  const rng = makeRng((state.seed ^ (state.wave * 7919)) >>> 0);
+  const blocks = [];
+  for (const dist of [620 + rng() * 300, 1750 + rng() * 400]) {
+    let rem = dist;
+    const pts = state.waypoints;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const seg = Math.hypot(b.x - a.x, b.y - a.y);
+      if (rem <= seg) {
+        const k = seg ? rem / seg : 0;
+        const dx = (b.x - a.x) / (seg || 1);
+        const dy = (b.y - a.y) / (seg || 1);
+        blocks.push({
+          x: a.x + (b.x - a.x) * k - dy * 46,
+          y: a.y + (b.y - a.y) * k + dx * 46,
+          hit: false, ph: rng() * 6,
+        });
+        break;
+      }
+      rem -= seg;
+    }
+  }
+  return blocks;
+}
 
 export function startWave(state) {
   if (state.waveActive || state.phase !== 'play') return false;
@@ -212,6 +250,8 @@ export function startWave(state) {
     : waveSchedule(state.wave);
   state.spawned = 0;
   state.waveTime = 0;
+  state.waveLeaks = 0;
+  state.blocks = seedBlocks(state);
   state.waveActive = true;
   const names = {
     brute: 'The Blight Brute lumbers in!',
@@ -229,7 +269,7 @@ export function startWave(state) {
   } else {
     banner(state, state.mode === 'endless'
         ? '♾ Everbloom — Wave ' + state.wave
-        : 'Wave ' + state.wave + ' / ' + TOTAL_WAVES,
+        : '🌼 MISSION ' + state.wave + ' — DEFEND THE BLOOM!',
       special ? names[special.type] : '', 2.0);
   }
   if (state.soundOn) sfx.horn();
@@ -244,6 +284,17 @@ function finishWave(state) {
   state.earned += bonus + interest;
   state.score += 100 + state.wave * 25;
   state.spinsLeft = SPINS_PER_BREAK; // the slot refills each break
+  if (state.waveLeaks === 0) state.flawless += 1; // a leak-free clear
+  // Arcade mission rank for the clear: S for flawless, then A/B/C as
+  // leaks mount. Score-only, like the quests — balance never moves.
+  const rank = state.waveLeaks === 0 ? 'S' : state.waveLeaks === 1 ? 'A'
+    : state.waveLeaks === 2 ? 'B' : 'C';
+  state.ranks[rank] = (state.ranks[rank] || 0) + 1;
+  state.lastRank = rank;
+  const rankBonus = rank === 'S' ? 150 : rank === 'A' ? 75 : rank === 'B' ? 25 : 0;
+  state.score += rankBonus;
+  state.bonusScore += rankBonus;
+  checkQuests(state); // wave-clear trials settle before the offer opens
   if (state.spinBuff) {
     // A Bee Frenzy covers exactly the wave that followed its win.
     state.spinBuff.wavesLeft -= 1;
@@ -259,7 +310,8 @@ function finishWave(state) {
     state.offer = rollOffer(state.offerRng);
     log(state, 'Everbloom wave ' + state.wave + ' cleared! Bonus +' + bonus +
       ' pollen, interest +' + interest + '. Choose a blessing!');
-    banner(state, 'Everbloom wave cleared!', '+' + (bonus + interest) + ' pollen', 1.6);
+    banner(state, '🚩 WAVE CLEAR — RANK ' + rank + '!',
+      '+' + (bonus + interest) + ' pollen · rank bonus +' + rankBonus, 1.6);
     if (state.soundOn) sfx.coin();
     return;
   }
@@ -271,7 +323,8 @@ function finishWave(state) {
   state.offer = rollOffer(state.offerRng);
   log(state, 'Wave ' + state.wave + ' cleared! Bonus +' + bonus +
     ' pollen, interest +' + interest + '. Choose a blessing!');
-  banner(state, 'Wave cleared!', '+' + (bonus + interest) + ' pollen', 1.6);
+  banner(state, '🚩 MISSION CLEAR — RANK ' + rank + '!',
+    '+' + (bonus + interest) + ' pollen · rank bonus +' + rankBonus, 1.6);
   if (state.soundOn) sfx.coin();
 }
 
@@ -283,9 +336,8 @@ function winGame(state) {
 }
 
 /** Everbloom: from the victory screen, keep the garden — towers,
- * blessings, lives, pollen and score all stay — and let the blight
- * return in endless waves (endless.js). The campaign is already won;
- * from here the run is a score chase that ends only in defeat. */
+ * blessings, lives, pollen, score — and let the blight return in
+ * endless waves. From here the run is a score chase. */
 export function enterEndless(state) {
   if (state.phase !== 'won' || state.mode !== 'campaign') return false;
   state.mode = 'endless';
@@ -316,12 +368,13 @@ function snapshotStats(state) {
     towers: state.towers.length,
     mode: state.mode,
     spins: state.spinsTaken,
+    quests: state.questsDone.length,
+    ranks: state.ranks,
+    blocks: state.blocksHit,
   };
 }
 
-/* ------------------------------------------------------------------ */
-/* Combat                                                              */
-/* ------------------------------------------------------------------ */
+/* --- Combat --- */
 
 export function hitEnemy(state, enemy, rawDamage, source, extra = {}) {
   if (enemy.dead || enemy.reached) return;
@@ -349,6 +402,7 @@ export function hitEnemy(state, enemy, rawDamage, source, extra = {}) {
 function killEnemy(state, enemy, source) {
   enemy.dead = true;
   state.kills += 1;
+  if (enemy.def.boss) state.bossKills += 1;
   if (source) source.kills += 1;
   const bounty = Math.round(enemy.def.bounty * state.mods.bounty);
   state.pollen += bounty;
@@ -362,6 +416,21 @@ function killEnemy(state, enemy, source) {
     floater(state, enemy.x, enemy.y - 30, '+' + bounty, '#ffd94d');
   }
   if (state.soundOn) sfx.pop();
+  if (enemy.def.explodes) {
+    // A compost barrel goes up: a fat orange burst, a BOOM floater,
+    // a shake, and real AoE damage to every bug in the splash —
+    // barrels chain into each other, garden-arcade style.
+    burst(state, enemy.x, enemy.y, '#ff9d5c', 26, 190, 0.7, 4.5);
+    burst(state, enemy.x, enemy.y, '#ffd94d', 14, 120, 0.5, 3);
+    floater(state, enemy.x, enemy.y - 34, 'BOOM!', '#ffb340');
+    state.shake = 0.3;
+    for (const e of [...state.enemies]) {
+      if (e !== enemy && !e.dead && !e.def.barrel &&
+          Math.hypot(e.x - enemy.x, e.y - enemy.y) <= 96) {
+        hitEnemy(state, e, enemy.def.explodes, null);
+      }
+    }
+  }
   if (enemy.def.splitsInto) {
     for (let i = 0; i < enemy.def.splitCount; i++) {
       const child = makeEnemy(enemy.def.splitsInto, hpMulFor(state),
@@ -371,12 +440,14 @@ function killEnemy(state, enemy, source) {
       state.enemies.push(child);
     }
   }
+  checkQuests(state); // a pop — or a boss falling — may close a trial
 }
 
 function leakEnemy(state, enemy) {
   enemy.reached = true;
   state.lives -= enemy.def.damage;
   state.leaks += 1;
+  state.waveLeaks += 1;
   floater(state, state.waypoints[state.waypoints.length - 1].x - 10,
     enemy.y - 18, '-' + enemy.def.damage + ' ♥', '#ff5d73');
   burst(state, enemy.x, enemy.y, '#ff5d73', 12, 120, 0.5, 3.5);
@@ -519,13 +590,34 @@ function stepEnemies(state, dt) {
   state.enemies = state.enemies.filter((e) => !e.dead && !e.reached);
 }
 
-/* ------------------------------------------------------------------ */
-/* Main step                                                           */
-/* ------------------------------------------------------------------ */
+/* --- Main step --- */
+
+/** Park a freshly spawned compost barrel partway along the path
+ * (it never walks, so spawning it at the gate would strand it off
+ * the field's edge). Early barrels sit shallow, late ones deep. */
+function parkOnPath(state, e, distPx) {
+  let rem = distPx;
+  const pts = state.waypoints;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    const seg = Math.hypot(b.x - a.x, b.y - a.y);
+    if (rem <= seg) {
+      const k = seg ? rem / seg : 0;
+      e.x = a.x + (b.x - a.x) * k;
+      e.y = a.y + (b.y - a.y) * k;
+      e.wp = i + 1;
+      e.dist = distPx;
+      return;
+    }
+    rem -= seg;
+  }
+}
 
 export function stepWorld(state) {
   const dt = STEP;
   state.time += dt;
+  if (state.shake > 0) state.shake = Math.max(0, state.shake - dt);
   if (state.banner && state.time > state.banner.until) state.banner = null;
   if (state.phase === 'play') settleSpinNow(state);
 
@@ -536,8 +628,23 @@ export function stepWorld(state) {
       const item = state.schedule[state.spawned];
       const start = state.waypoints[0];
       const e = makeEnemy(item.type, hpMulFor(state), start.x, start.y, state.rng);
+      if (item.type === 'barrel') parkOnPath(state, e, item.at < 20 ? 800 : 1900);
       state.enemies.push(e);
       state.spawned += 1;
+    }
+    // Mystery Seed Blocks pop when a marching bug bumps them:
+    // score and a gold sparkle, never pollen — balance stays put.
+    for (const b of state.blocks) {
+      if (b.hit) continue;
+      if (state.enemies.some((e) => !e.dead &&
+          Math.hypot(e.x - b.x, e.y - b.y) < 52)) {
+        b.hit = true;
+        state.blocksHit += 1;
+        state.score += 40;
+        state.bonusScore += 40;
+        floater(state, b.x, b.y - 18, '+40', '#ffd94d');
+        sparkle(state, b.x, b.y, '#ffd94d');
+      }
     }
     if (state.spawned >= state.schedule.length && state.enemies.length === 0) {
       finishWave(state);

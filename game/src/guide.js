@@ -1,9 +1,7 @@
-// The field guide — the in-game bestiary panel. Every row is derived
-// from the live game data (ENEMIES in enemies.js, TOWERS in
-// towers.js): hit points, armour, speed class, bounties, costs, ranges
-// and roles are read off the definitions, so the guide can never drift
-// from the game it describes. If a balance number changes, the guide
-// changes with it.
+// The field guide — the bestiary panel. Every row is derived from
+// the live game data (ENEMIES, TOWERS): HP, armour, speed class,
+// bounties, costs, ranges — so the guide can never drift from the
+// game it describes.
 
 import { ENEMIES } from './enemies.js';
 import { TOWERS, TOWER_ORDER } from './towers.js';
@@ -18,7 +16,9 @@ function speedClass(def) {
 /** One guide row per bug kind, in data order: name, icon colour for
  * the swatch, and the trait line assembled from the definition. */
 export function bugGuide() {
-  return Object.values(ENEMIES).map((def) => {
+  // The compost barrel is a path obstacle, not a bug — it stays out
+  // of the bestiary (its story is told in endless.js / world.js).
+  return Object.values(ENEMIES).filter((def) => !def.barrel).map((def) => {
     const traits = ['HP ' + def.hp, speedClass(def)];
     if (def.armor > 0) traits.push('armor ' + def.armor);
     if (def.flying) traits.push('flies — air towers only');

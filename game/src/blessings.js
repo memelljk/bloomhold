@@ -1,13 +1,9 @@
-// Garden Blessings — the between-wave meta layer. Whenever a wave is
-// cleared (and the game is not over), the garden offers three gifts and
-// the player picks one; gifts stack for the rest of the run. Sending
-// the next wave without picking lets the offer wilt — a player in a
-// hurry (or an autoplayer) simply plays the un-blessed game.
-//
-// A blessing is pure data plus what it does to state.mods (the run-wide
-// modifier block the world and towers read) or, for Second Spring, to
-// the lives total directly. Offers are rolled on a dedicated RNG so
-// the main simulation stream — and every replay of it — is untouched.
+// Garden Blessings — the between-wave meta layer: after a cleared
+// wave the garden offers three gifts, the player picks one, gifts
+// stack for the run; sending the next wave unpicked lets the offer
+// wilt. A blessing is data plus its effect on state.mods (or, for
+// Second Spring, on lives). Offers roll on a dedicated RNG, so the
+// simulation stream — and every replay — is untouched.
 
 export const BLESSINGS = {
   sunpetals: {

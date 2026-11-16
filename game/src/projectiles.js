@@ -1,8 +1,7 @@
-// Projectiles: petals fly straight at a locked target, frost shards burst
-// into a slowing chill, thorns lob in an arc and splash where they land,
-// bees home in and sting (poison). Storm Orchid lightning is instant — it
-// never becomes a projectile; world.js applies it directly and leaves a
-// bolt effect for the renderer.
+// Projectiles: petals fly at a locked target, frost shards burst
+// into a slowing chill, thorns lob and splash, bees home and sting
+// (poison). Orchid lightning is instant — world.js applies it
+// directly and leaves a bolt effect for the renderer.
 
 import { burst } from './particles.js';
 

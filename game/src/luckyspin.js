@@ -1,16 +1,11 @@
-// Lucky Sprout — the garden slot machine. Between waves the player may
-// spend pollen on a three-reel spin: the reels are the garden's own
-// cast (Heartbloom, Sunbloom, honey, bees, petals, sprouts — and the
-// blight skull nobody wants). Prizes are real but bounded: pollen
-// jackpots, a random Blessing, two lives, a one-wave fire-rate frenzy,
-// and a small blight tax on three skulls. The expected pollen return is
-// well under the price (see the weights below), so the machine is a
-// pollen sink with spikes of joy — it can never fund the campaign.
-//
-// Everything rolls on state.luckRng, a dedicated stream (like the
-// Blessings offer RNG), so the main simulation stream — and every
-// replay of the campaign, the autoplayer included — is untouched: the
-// greedy bot never spins, and its proven outcome cannot move.
+// Lucky Sprout — the garden slot machine. Between waves the player
+// spends pollen on a three-reel spin of garden symbols (Heartbloom,
+// Sunbloom, honey, bees, petals, sprouts — and the blight skull).
+// Prizes are bounded: pollen jackpots, a Blessing, two lives, a
+// one-wave fire-rate frenzy, a small tax on three skulls. Expected
+// return is well under the price — a pollen sink with spikes of joy.
+// All rolls use state.luckRng, a dedicated stream, so the campaign
+// replay (and the autoplayer, which never spins) is untouched.
 
 import { BLESSINGS, BLESSING_ORDER } from './blessings.js';
 
@@ -21,10 +16,9 @@ export const PAIR_POLLEN = 25;
 export const SKULL_TAX = 20;
 export const FRENZY_RATE = 1.25; // Bee Frenzy: +25% fire rate, one wave
 
-/** The reel strip: one weighted symbol table shared by all three reels.
- * Weights sum to 100. Three-of-a-kind odds follow from them: the
- * Heartbloom jackpot lands 0,0064% of spins, three skulls 1,06%, and
- * some paying pair about 31% — total pollen EV ≈ +8,5 on a ✿30 spin. */
+/** The reel strip: one weighted table (sums to 100) for all three
+ * reels. Jackpot odds 0,0064%, three skulls 1,06%, a paying pair
+ * ~31% — pollen EV ≈ +8,5 on a ✿30 spin (a sink overall). */
 export const SLOT_SYMBOLS = [
   { id: 'skull', icon: '💀', name: 'Blight Skull', weight: 22 },
   { id: 'sprout', icon: '🌱', name: 'Sprout', weight: 22 },
@@ -80,10 +74,9 @@ export function reelDisplay(spin, time) {
   });
 }
 
-/** Start a spin. All the guards live here: play phase, between waves,
- * no blessing offer on the table, spins left this break, pollen for
- * the price, and no other spin still rolling. Deducts the price and
- * rolls the three targets on the luck stream. */
+/** Start a spin — all guards live here (phase, between waves, no
+ * offer open, spins left, pollen, none rolling). Deducts the price
+ * and rolls the three targets on the luck stream. */
 export function startSpin(state) {
   if (state.phase !== 'play' || state.waveActive) return false;
   if (state.offer) return false; // pick (or wilt) the blessing first
@@ -105,10 +98,9 @@ export function startSpin(state) {
   return true;
 }
 
-/** Apply the paytable once the last reel has landed. Returns a result
- * record { text, kind, pollen } for the world's banner/log/sound side
- * effects, or null when there is nothing to settle. Idempotent: a paid
- * spin never pays twice. */
+/** Apply the paytable once the last reel lands: a result record
+ * { text, kind, pollen } for the world's side effects, or null.
+ * Idempotent — a paid spin never pays twice. */
 export function settleSpin(state) {
   const spin = state.spin;
   if (!spin || spin.paid || state.time < spin.resolveAt) return null;

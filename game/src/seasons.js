@@ -1,19 +1,12 @@
-// The four seasons of Bloomhold. The campaign is a year in the
-// garden: waves 1–6 Spring, 7–12 Summer, 13–18 Autumn, 19–24 Winter,
-// and Everbloom years turn the same cycle again. Each season carries
-// its own field palette and light (render.js reads them), its own
-// weather in the air, and a name the HUD, the wave preview and the
-// season-turn banner all share. When a season ends, the between-wave
-// Blessing choice is framed as the Harvest Festival.
-//
-// This module is presentation data and pure functions of the wave
-// number — fixed palettes, no clocks, no randomness — so the year's
-// light is identical on every replay and the simulation never knows
-// what season it is.
+// The four seasons: the campaign is a year — waves 1–6 Spring,
+// 7–12 Summer, 13–18 Autumn, 19–24 Winter, and Everbloom years turn
+// the same cycle. Each season carries a field palette, light and
+// weather (render.js reads them); a season's end frames the Blessing
+// choice as the Harvest Festival. Pure data + functions of the wave
+// number — the simulation never knows what season it is.
 
-/** Season table, in year order. grassA/grassB/grassDark restyle the
- * field checker and tufts; tint is the season's light washed over the
- * whole field; weather names the ambient drift render.js draws. */
+/** Season table, in year order: grass tones, the light tint washed
+ * over the field, and the ambient weather render.js draws. */
 export const SEASONS = [
   {
     id: 'spring', name: 'Spring', icon: '🌸',

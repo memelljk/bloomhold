@@ -1,16 +1,9 @@
-// The six flower towers of Bloomhold. Each has one clear job, three
-// upgrade levels, and its own projectile kind (see projectiles.js):
-//
-//   archer   Petal Archer  — cheap, fast single-target petals; hits air.
-//   frost    Frostbloom    — chilly splash that slows whole groups.
-//   mortar   Thorn Mortar  — slow lobbed thorns, big splash damage.
-//   hive     Beehive       — bees that chase and sting (damage over time).
-//   orchid   Storm Orchid  — instant chain lightning; hits air.
-//   sunbloom Sunbloom      — grows bonus pollen; only tickles bugs.
-//
-// Upgrade cost is 80% of the base cost per level already bought; selling
-// refunds 70% of everything invested. Level multipliers apply to the
-// base stats below.
+// The six flower towers — one job each, three upgrade levels, each
+// with its own projectile kind (projectiles.js): archer (fast petals,
+// hits air), frost (slowing splash), mortar (lobbed splash thorns),
+// hive (homing poison bees), orchid (chain lightning, hits air),
+// sunbloom (grows pollen). Upgrade = 80% of base cost per level
+// bought; selling refunds 70% of everything invested.
 
 export const TOWER_ORDER = ['archer', 'frost', 'mortar', 'hive', 'orchid', 'sunbloom'];
 
